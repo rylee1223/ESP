@@ -1,0 +1,1 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/rylee1223/ESP/refs/heads/main/TELEPORT", true))()
