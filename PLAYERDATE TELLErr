@@ -4,20 +4,19 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Create ScreenGui
+-- GUI setup
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "PlayerInfoGui"
-screenGui.Parent = playerGui
 screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
 
--- Main frame (draggable)
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 320, 0, 440) -- taller for search box
-frame.Position = UDim2.new(0.5, -160, 0.5, -220)
+frame.Size = UDim2.new(0, 480, 0, 440) -- wider to fit details panel
+frame.Position = UDim2.new(0.5, -240, 0.5, -220)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.BorderSizePixel = 0
-frame.Parent = screenGui
 frame.Active = true
+frame.Parent = screenGui
 
 -- Title bar
 local titleBar = Instance.new("Frame")
@@ -28,44 +27,44 @@ titleBar.Parent = frame
 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -40, 1, 0)
+title.Position = UDim2.new(0, 10, 0, 0)
 title.BackgroundTransparency = 1
-title.TextColor3 = Color3.new(1,1,1)
+title.TextColor3 = Color3.new(1, 1, 1)
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 20
-title.Text = "Players Account Info"
 title.TextXAlignment = Enum.TextXAlignment.Left
-title.Position = UDim2.new(0, 10, 0, 0)
+title.Text = "Players Account Info"
 title.Parent = titleBar
 
--- Open/Close Button
+-- Toggle Button
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(0, 30, 1, 0)
 toggleButton.Position = UDim2.new(1, -30, 0, 0)
 toggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 toggleButton.BorderSizePixel = 0
-toggleButton.TextColor3 = Color3.new(1,1,1)
+toggleButton.TextColor3 = Color3.new(1, 1, 1)
 toggleButton.Font = Enum.Font.SourceSansBold
 toggleButton.TextSize = 20
-toggleButton.Text = "–" -- open initially
+toggleButton.Text = "–"
 toggleButton.Parent = titleBar
 
 -- Search Box
 local searchBox = Instance.new("TextBox")
-searchBox.Size = UDim2.new(1, -10, 0, 30)
+searchBox.Size = UDim2.new(0, 220, 0, 30) -- narrower to make space for details panel
 searchBox.Position = UDim2.new(0, 5, 0, 35)
 searchBox.PlaceholderText = "Search players..."
 searchBox.ClearTextOnFocus = false
 searchBox.Text = ""
-searchBox.TextColor3 = Color3.new(1,1,1)
+searchBox.TextColor3 = Color3.new(1, 1, 1)
 searchBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 searchBox.BorderSizePixel = 0
 searchBox.Font = Enum.Font.SourceSans
 searchBox.TextSize = 18
 searchBox.Parent = frame
 
--- Scrolling frame for player list
+-- Scroll Frame for player list (left side)
 local scrollFrame = Instance.new("ScrollingFrame")
-scrollFrame.Size = UDim2.new(1, -10, 1, -75) -- adjusted for search box + title bar
+scrollFrame.Size = UDim2.new(0, 230, 1, -75)
 scrollFrame.Position = UDim2.new(0, 5, 0, 70)
 scrollFrame.BackgroundTransparency = 1
 scrollFrame.BorderSizePixel = 0
@@ -77,63 +76,146 @@ local listLayout = Instance.new("UIListLayout")
 listLayout.Padding = UDim.new(0, 5)
 listLayout.Parent = scrollFrame
 
-local function getAccountCreation(player)
-    if player and player.AccountAge then
-        local days = player.AccountAge
-        local creationDate = os.date("%Y-%m-%d", os.time() - (days * 24 * 60 * 60))
+-- Update scroll size dynamically
+listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+end)
+
+-- Panel on right side to show player details
+local detailsFrame = Instance.new("Frame")
+detailsFrame.Size = UDim2.new(0, 230, 1, -75)
+detailsFrame.Position = UDim2.new(0, 240, 0, 70)
+detailsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+detailsFrame.BorderSizePixel = 0
+detailsFrame.Parent = frame
+
+local detailsTitle = Instance.new("TextLabel")
+detailsTitle.Size = UDim2.new(1, 0, 0, 30)
+detailsTitle.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+detailsTitle.TextColor3 = Color3.new(1, 1, 1)
+detailsTitle.Font = Enum.Font.SourceSansBold
+detailsTitle.TextSize = 18
+detailsTitle.Text = "Select a player to view details"
+detailsTitle.Parent = detailsFrame
+
+local detailsContent = Instance.new("TextLabel")
+detailsContent.Size = UDim2.new(1, -10, 1, -40)
+detailsContent.Position = UDim2.new(0, 5, 0, 35)
+detailsContent.BackgroundTransparency = 1
+detailsContent.TextColor3 = Color3.new(1, 1, 1)
+detailsContent.Font = Enum.Font.SourceSans
+detailsContent.TextSize = 16
+detailsContent.TextWrapped = true
+detailsContent.TextYAlignment = Enum.TextYAlignment.Top
+detailsContent.Text = ""
+detailsContent.Parent = detailsFrame
+
+-- Helper function: format account creation date
+local function getAccountCreation(p)
+    if p and p.AccountAge then
+        local daysAgo = p.AccountAge
+        local creationDate = os.date("%Y-%m-%d", os.time() - (daysAgo * 86400))
         return creationDate
     end
     return "N/A"
 end
 
--- Create a simple player label (no thumbnail)
+-- Create player entry with clickable functionality
 local function createPlayerLabel(p)
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -10, 0, 40)
+    local label = Instance.new("TextButton")
+    label.Size = UDim2.new(1, -10, 0, 50)
     label.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     label.BorderSizePixel = 0
-    label.TextColor3 = Color3.new(1,1,1)
-    label.Font = Enum.Font.SourceSans
-    label.TextSize = 18
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Text = p.Name .. " - Created: " .. getAccountCreation(p)
+    label.AutoButtonColor = false
     label.Parent = scrollFrame
-    return label
+
+    -- Hover effect
+    label.MouseEnter:Connect(function()
+        label.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    end)
+    label.MouseLeave:Connect(function()
+        label.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    end)
+
+    -- Profile picture
+    local image = Instance.new("ImageLabel")
+    image.Size = UDim2.new(0, 40, 0, 40)
+    image.Position = UDim2.new(0, 5, 0.5, -20)
+    image.BackgroundTransparency = 1
+    image.Parent = label
+
+    local success, thumb = pcall(function()
+        return Players:GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+    end)
+    if success then
+        image.Image = thumb
+    else
+        image.Image = ""
+    end
+
+    -- Text label
+    local text = Instance.new("TextLabel")
+    text.Size = UDim2.new(1, -55, 1, 0)
+    text.Position = UDim2.new(0, 50, 0, 0)
+    text.BackgroundTransparency = 1
+    text.TextColor3 = Color3.new(1, 1, 1)
+    text.Font = Enum.Font.SourceSans
+    text.TextSize = 16
+    text.TextXAlignment = Enum.TextXAlignment.Left
+    text.TextTruncate = Enum.TextTruncate.AtEnd
+    text.Text = p.DisplayName .. " (" .. p.Name .. ")"
+    text.Parent = label
+
+    -- On click: show player details in the details panel
+    label.MouseButton1Click:Connect(function()
+        local detailsText = ("Username: %s\nDisplay Name: %s\nAccount Created: %s\nAccount Age (days): %d\nUserId: %d")
+            :format(p.Name, p.DisplayName, getAccountCreation(p), p.AccountAge, p.UserId)
+        detailsTitle.Text = "Player Details"
+        detailsContent.Text = detailsText
+    end)
 end
 
--- Populate or update the list according to filter
+-- Update player list with filter
 local function updateList(filter)
     filter = filter:lower()
-    -- Clear current labels
-    for _, v in pairs(scrollFrame:GetChildren()) do
-        if v:IsA("TextLabel") then
-            v:Destroy()
+
+    for _, child in ipairs(scrollFrame:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
         end
     end
 
+    local filtered = {}
     for _, p in ipairs(Players:GetPlayers()) do
-        if p.Name:lower():find(filter) then
-            createPlayerLabel(p)
+        if p.Name:lower():find(filter) or p.DisplayName:lower():find(filter) then
+            table.insert(filtered, p)
         end
     end
 
-    wait() -- wait for layout update
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+    table.sort(filtered, function(a, b)
+        return a.AccountAge > b.AccountAge -- oldest first
+    end)
+
+    for _, p in ipairs(filtered) do
+        createPlayerLabel(p)
+    end
 end
 
--- Initialize list with all players
+-- Initial fill
 updateList("")
 
--- Update list on player join/leave with current filter
+-- Search box event
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    updateList(searchBox.Text)
+    detailsTitle.Text = "Select a player to view details"
+    detailsContent.Text = ""
+end)
+
+-- Player join/leave updates
 Players.PlayerAdded:Connect(function()
     updateList(searchBox.Text)
 end)
 Players.PlayerRemoving:Connect(function()
-    updateList(searchBox.Text)
-end)
-
--- Search box listener
-searchBox:GetPropertyChangedSignal("Text"):Connect(function()
     updateList(searchBox.Text)
 end)
 
@@ -142,19 +224,21 @@ local isOpen = true
 toggleButton.MouseButton1Click:Connect(function()
     isOpen = not isOpen
     if isOpen then
-        frame.Size = UDim2.new(0, 320, 0, 440)
+        frame.Size = UDim2.new(0, 480, 0, 440)
         scrollFrame.Visible = true
         searchBox.Visible = true
+        detailsFrame.Visible = true
         toggleButton.Text = "–"
     else
         frame.Size = UDim2.new(0, 320, 0, 30)
         scrollFrame.Visible = false
         searchBox.Visible = false
+        detailsFrame.Visible = false
         toggleButton.Text = "+"
     end
 end)
 
--- Dragging support on title bar (mobile + PC)
+-- Dragging support
 local dragging = false
 local dragInput, dragStart, startPos
 
@@ -169,7 +253,7 @@ local function updatePosition(input)
 end
 
 titleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
         dragStart = input.Position
         startPos = frame.Position
@@ -183,7 +267,7 @@ titleBar.InputBegan:Connect(function(input)
 end)
 
 titleBar.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         dragInput = input
     end
 end)
